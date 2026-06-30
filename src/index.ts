@@ -5,12 +5,15 @@ import { cors } from 'hono/cors'
 
 import { restoreSessions, getAllSessions } from './lib/session-manager.js'
 import { authMiddleware } from './lib/auth-middleware.js'
+import { startScheduler } from './lib/scheduler.js'
 
 // Import Routers
 import { authRouter } from './routes/auth.js'
 import { devicesRouter } from './routes/devices.js'
 import { autoReplyRouter } from './routes/auto-reply.js'
 import { messagesRouter } from './routes/messages.js'
+import { apiKeysRouter } from './routes/api-keys.js'
+import { scheduledRouter } from './routes/scheduled.js'
 
 // ── App Initialization ───────────────────────────────────────────────────────
 
@@ -71,7 +74,7 @@ app.use(
       return corsOrigin
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
     credentials: true,
   })
 )
@@ -109,6 +112,8 @@ app.use('/api/*', async (c, next) => {
 app.route('/api/auth', authRouter)
 app.route('/api/devices', devicesRouter)
 app.route('/api/auto-reply', autoReplyRouter)
+app.route('/api/api-keys', apiKeysRouter)
+app.route('/api/scheduled', scheduledRouter)
 app.route('/api', messagesRouter)
 
 // ── Root Endpoint ────────────────────────────────────────────────────────────
@@ -127,4 +132,7 @@ serve({ fetch: app.fetch, port }, async (info) => {
 
   // Restore persisted sessions from Supabase on boot
   await restoreSessions()
+
+  // Start scheduled messages polling loop
+  startScheduler()
 })
