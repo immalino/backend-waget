@@ -194,13 +194,13 @@ app.put('/api/auth/password', authMiddleware, async (c) => {
   return c.json({ ok: true })
 })
 
-// ── Auth guard for all other /api/* routes ────────────────────────────────────
 app.use('/api/*', async (c, next) => {
-  // Skip routes already handled above (health + auth endpoints)
+  // Skip routes already handled above (health + auth endpoints, and QR SSE endpoint which uses query param auth)
   const path = c.req.path
   if (
     path === '/api/health' ||
-    path.startsWith('/api/auth/')
+    path.startsWith('/api/auth/') ||
+    (path.startsWith('/api/devices/') && path.endsWith('/qr'))
   ) {
     return next()
   }
