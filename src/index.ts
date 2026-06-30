@@ -309,7 +309,7 @@ app.get('/api/devices/:id/qr', async (c) => {
   // SSE: EventSource doesn't support custom headers, so accept token via query param
   const qToken = c.req.query('token') ?? c.req.header('Authorization')?.slice(7)
   if (qToken) {
-    const { data, error } = await supabase.auth.getUser(qToken)
+    const { data, error } = await supabaseAuth.auth.getUser(qToken)
     if (error || !data.user) {
       return c.json({ error: 'Unauthorized' }, 401)
     }

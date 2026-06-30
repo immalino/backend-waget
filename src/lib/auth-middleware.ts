@@ -1,5 +1,5 @@
 import type { Context, Next } from 'hono'
-import { supabase } from './supabase.js'
+import { supabaseAuth } from './supabase.js'
 
 /**
  * Hono middleware — validates the Bearer JWT from Supabase Auth.
@@ -15,7 +15,7 @@ export async function authMiddleware(c: Context<{ Variables: { userId: string; u
 
   const token = authHeader.slice(7)
 
-  const { data, error } = await supabase.auth.getUser(token)
+  const { data, error } = await supabaseAuth.auth.getUser(token)
 
   if (error || !data.user) {
     return c.json({ error: 'Unauthorized — invalid or expired token' }, 401)
