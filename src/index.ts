@@ -36,6 +36,39 @@ const app = new Hono<{ Variables: Variables }>()
 
 const corsOrigin = (process.env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '')
 
+// ── CORS Debug Logger Middleware ─────────────────────────────────────────────
+app.use('*', async (c, next) => {
+  const method = c.req.method
+  const url = c.req.url
+  const reqHeaders = {
+    origin: c.req.header('origin'),
+    host: c.req.header('host'),
+    'access-control-request-method': c.req.header('access-control-request-method'),
+    'access-control-request-headers': c.req.header('access-control-request-headers'),
+  }
+
+  console.log(`\n[CORS DEBUG - REQUEST] ${method} ${url}`)
+  console.log(`  Origin: ${reqHeaders.origin || 'none'}`)
+  console.log(`  Headers:`, JSON.stringify(reqHeaders, null, 2))
+
+  await next()
+
+  const status = c.res?.status ?? 'unknown'
+  const resHeaders = c.res ? {
+    'access-control-allow-origin': c.res.headers.get('access-control-allow-origin'),
+    'access-control-allow-methods': c.res.headers.get('access-control-allow-methods'),
+    'access-control-allow-headers': c.res.headers.get('access-control-allow-headers'),
+    'access-control-allow-credentials': c.res.headers.get('access-control-allow-credentials'),
+  } : null
+
+  console.log(`[CORS DEBUG - RESPONSE] ${method} ${url} - Status: ${status}`)
+  console.log(`  Allowed Origin: ${resHeaders?.['access-control-allow-origin'] || 'none'}`)
+  if (resHeaders) {
+    console.log(`  CORS Headers:`, JSON.stringify(resHeaders, null, 2))
+  }
+  console.log('──────────────────────────────────────────────────')
+})
+
 // Allow both localhost dev and any Vercel preview URLs
 app.use(
   '/api/*',
