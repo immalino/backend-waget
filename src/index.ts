@@ -34,7 +34,7 @@ type Variables = {
 
 const app = new Hono<{ Variables: Variables }>()
 
-const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173'
+const corsOrigin = (process.env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '')
 
 // Allow both localhost dev and any Vercel preview URLs
 app.use(
