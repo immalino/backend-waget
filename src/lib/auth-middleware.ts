@@ -18,6 +18,7 @@ export async function authMiddleware(c: Context<{ Variables: { userId: string; u
   const { data, error } = await supabaseAuth.auth.getUser(token)
 
   if (error || !data.user) {
+    console.error('[AUTH MIDDLEWARE ERROR] Supabase getUser error:', error)
     return c.json({ error: 'Unauthorized — invalid or expired token' }, 401)
   }
 

@@ -311,6 +311,7 @@ app.get('/api/devices/:id/qr', async (c) => {
   if (qToken) {
     const { data, error } = await supabaseAuth.auth.getUser(qToken)
     if (error || !data.user) {
+      console.error('[QR AUTH ERROR] Supabase getUser error:', error)
       return c.json({ error: 'Unauthorized' }, 401)
     }
   } else {
