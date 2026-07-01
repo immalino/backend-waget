@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getSocket } from "../lib/session-manager.js";
+import { supabase } from "../lib/supabase.js";
 import {
   startBlast,
   getBlastStatus,
@@ -175,6 +176,68 @@ messagesRouter.post("/send-media", async (c) => {
 
     await sock.sendMessage(jid, messagePayload);
     return c.json({ ok: true, to: jid, mediaType });
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
+/** POST /api/upload — upload file to Supabase Storage and return public URL */
+messagesRouter.post("/upload", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body.file;
+
+    if (!file || typeof file === "string") {
+      return c.json({ error: "No file uploaded" }, 400);
+    }
+
+    const fileMimetype = file.type;
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const originalName = file.name;
+    const ext = originalName.split(".").pop()?.toLowerCase() || "";
+
+    const uniqueId = Math.random().toString(36).substring(2, 15);
+    const fileName = `${Date.now()}-${uniqueId}.${ext}`;
+
+    // Ensure bucket 'media' exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    if (listError) {
+      return c.json({ error: `Failed to list storage buckets: ${listError.message}` }, 500);
+    }
+
+    const hasMediaBucket = buckets?.some(b => b.id === 'media');
+    if (!hasMediaBucket) {
+      const { error: createError } = await supabase.storage.createBucket('media', {
+        public: true,
+      });
+      if (createError) {
+        return c.json({ error: `Failed to create media bucket: ${createError.message}` }, 500);
+      }
+    }
+
+    // Upload file
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(fileName, fileBuffer, {
+        contentType: fileMimetype,
+        upsert: true
+      });
+
+    if (uploadError) {
+      return c.json({ error: `Upload failed: ${uploadError.message}` }, 500);
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('media')
+      .getPublicUrl(fileName);
+
+    return c.json({
+      ok: true,
+      url: publicUrlData.publicUrl,
+      fileName: originalName,
+      mimeType: fileMimetype,
+    });
   } catch (err) {
     return c.json({ error: (err as Error).message }, 500);
   }
