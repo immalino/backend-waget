@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS auto_reply_rules (
   response    TEXT NOT NULL,
   sender_id   TEXT DEFAULT 'All',        -- 'All' or specific device phone number
   enabled     BOOLEAN DEFAULT TRUE,
+  media_url   TEXT,
+  media_type  TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

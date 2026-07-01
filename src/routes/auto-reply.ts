@@ -27,6 +27,8 @@ autoReplyRouter.post('/', async (c) => {
     response: string
     sender_id?: string
     enabled?: boolean
+    mediaUrl?: string
+    mediaType?: string
   }>()
 
   if (!body.keyword || !body.response) {
@@ -40,6 +42,8 @@ autoReplyRouter.post('/', async (c) => {
       response: body.response,
       sender_id: body.sender_id ?? 'All',
       enabled: body.enabled ?? true,
+      media_url: body.mediaUrl || null,
+      media_type: body.mediaType || null,
     })
     .select()
     .single()
@@ -58,6 +62,8 @@ autoReplyRouter.put('/:id', async (c) => {
     response: string
     sender_id: string
     enabled: boolean
+    mediaUrl: string | null
+    mediaType: string | null
   }>>()
 
   const patch: Record<string, unknown> = {}
@@ -65,6 +71,8 @@ autoReplyRouter.put('/:id', async (c) => {
   if (body.response !== undefined) patch.response  = body.response
   if (body.sender_id !== undefined) patch.sender_id = body.sender_id
   if (body.enabled  !== undefined) patch.enabled   = body.enabled
+  if (body.mediaUrl !== undefined) patch.media_url = body.mediaUrl
+  if (body.mediaType !== undefined) patch.media_type = body.mediaType
 
   const { data, error } = await supabase
     .from('auto_reply_rules')

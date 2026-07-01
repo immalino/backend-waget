@@ -8,6 +8,8 @@ interface BlastJob {
   deviceId: string
   numbers: string[]
   message: string
+  mediaUrl?: string
+  mediaType?: string
   delay: number       // base delay in seconds
   status: 'running' | 'completed' | 'stopped'
   sent: number
@@ -22,6 +24,25 @@ interface BlastJob {
 const blasts = new Map<string, BlastJob>()
 let nextId = 1
 
+// Guess mimetype from extension for document sending
+function getMimeTypeFromExtension(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || ''
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip: 'application/zip',
+    rar: 'application/x-rar-compressed',
+    txt: 'text/plain',
+    csv: 'text/csv'
+  }
+  return mimeTypes[ext] || 'application/octet-stream'
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Start a new blast job. Returns the blast ID. */
@@ -29,9 +50,11 @@ export function startBlast(params: {
   deviceId: string
   numbers: string[]
   message: string
+  mediaUrl?: string
+  mediaType?: string
   delay?: number  // base delay in seconds (default 7)
 }): string {
-  const { deviceId, numbers, message, delay = 7 } = params
+  const { deviceId, numbers, message, mediaUrl, mediaType, delay = 7 } = params
 
   const id = `blast-${nextId++}`
 
@@ -40,6 +63,8 @@ export function startBlast(params: {
     deviceId,
     numbers: [...numbers],
     message,
+    mediaUrl,
+    mediaType,
     delay,
     status: 'running',
     sent: 0,
@@ -98,7 +123,28 @@ async function processBlast(job: BlastJob): Promise<void> {
     const timestamp = new Date().toISOString()
 
     try {
-      await sock.sendMessage(jid, { text: job.message })
+      let payload: any = {}
+      if (job.mediaUrl) {
+        const type = job.mediaType || (job.mediaUrl.match(/\.(jpg|jpeg|png|gif|webp)/i) ? 'image' : 'document')
+        if (type === 'image') {
+          payload = { image: { url: job.mediaUrl }, caption: job.message }
+        } else if (type === 'video') {
+          payload = { video: { url: job.mediaUrl }, caption: job.message }
+        } else if (type === 'audio') {
+          payload = { audio: { url: job.mediaUrl } }
+        } else {
+          payload = {
+            document: { url: job.mediaUrl },
+            mimetype: getMimeTypeFromExtension(job.mediaUrl),
+            fileName: job.mediaUrl.split('/').pop() || 'document',
+            caption: job.message
+          }
+        }
+      } else {
+        payload = { text: job.message }
+      }
+
+      await sock.sendMessage(jid, payload)
       job.sent++
       job.logs.unshift({ num, ok: true, time: timestamp })
 

@@ -9,6 +9,8 @@ interface AutoReplyRule {
   response: string
   sender_id: string  // 'All' or a specific phone number
   enabled: boolean
+  media_url?: string | null
+  media_type?: string | null
 }
 
 // ── In-memory rules cache ────────────────────────────────────────────────────
@@ -16,6 +18,25 @@ interface AutoReplyRule {
 let rulesCache: AutoReplyRule[] = []
 let cacheExpiry = 0
 const CACHE_TTL_MS = 60_000  // refresh every 60 seconds
+
+// Guess mimetype from extension for document sending
+function getMimeTypeFromExtension(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || ''
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip: 'application/zip',
+    rar: 'application/x-rar-compressed',
+    txt: 'text/plain',
+    csv: 'text/csv'
+  }
+  return mimeTypes[ext] || 'application/octet-stream'
+}
 
 async function getRules(): Promise<AutoReplyRule[]> {
   if (Date.now() < cacheExpiry && rulesCache.length > 0) {
@@ -89,9 +110,28 @@ async function handleIncomingMessage(
     // Case-insensitive keyword match (checks if the keyword appears in the message)
     if (lowerText.includes(rule.keyword.toLowerCase())) {
       try {
-        await sock.sendMessage(msg.key.remoteJid!, {
-          text: rule.response,
-        })
+        let payload: any = {}
+        if (rule.media_url) {
+          const type = rule.media_type || (rule.media_url.match(/\.(jpg|jpeg|png|gif|webp)/i) ? 'image' : 'document')
+          if (type === 'image') {
+            payload = { image: { url: rule.media_url }, caption: rule.response }
+          } else if (type === 'video') {
+            payload = { video: { url: rule.media_url }, caption: rule.response }
+          } else if (type === 'audio') {
+            payload = { audio: { url: rule.media_url } }
+          } else {
+            payload = {
+              document: { url: rule.media_url },
+              mimetype: getMimeTypeFromExtension(rule.media_url),
+              fileName: rule.media_url.split('/').pop() || 'document',
+              caption: rule.response
+            }
+          }
+        } else {
+          payload = { text: rule.response }
+        }
+
+        await sock.sendMessage(msg.key.remoteJid!, payload)
         console.log(
           `[${deviceId}] Auto-reply sent for keyword "${rule.keyword}" to ${msg.key.remoteJid}`
         )
